@@ -11,31 +11,53 @@ train_data_clean <- train_data %>%
   mutate(count = log(count))
 
 bike_recipe <-recipe(count ~ ., data = train_data_clean) %>% 
-  step_time(datetime, features="hour") %>% 
-  step_rm(datetime) %>%
-  step_mutate(weather3lvl = factor(ifelse(weather == 4, 3, weather))) %>% 
+  step_time(datetime, features="hour") %>%
+  step_date(datetime, features= "dow") %>% 
+  step_mutate(datetime_hour = factor(datetime_hour)) %>% 
+  step_rm(c(datetime, atemp)) %>% 
+  step_mutate(weather = factor(ifelse(weather == 4, 3, weather))) %>% 
   step_mutate(season = factor(season)) %>% 
   step_zv(all_predictors()) %>% 
-  step_poly(c(humidity, temp, atemp, windspeed), degree = 10) %>% 
-  step_dummy(all_nominal_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>% 
+  step_poly(c(humidity, temp, windspeed), degree = 3) %>% 
   step_normalize(all_numeric_predictors())
+  
+  
 prepped_recipe <- prep(bike_recipe)
-bake(prepped_recipe, new_data=train_data_clean)
+baked_data <- bake(prepped_recipe, new_data=train_data_clean)
 
-preg_model <- linear_reg(penalty=0.01, mixture=0) %>% 
+preg_model <- linear_reg(penalty=tune(), mixture=tune()) %>% 
   set_engine("glmnet") 
-#improved1 is penalty 0 mixture doesn't matter at that point
-#improved2 is penalty 0.1, mixture 1
-#improved3 is penalty 0.1, mixture 0
-#improved4 is penalty 0.01, mixture 1
-#improved5 is penalty 0.01, mixture 0
 
-bike_workflow <- workflow() %>%
+bike_wf <- workflow() %>%
   add_recipe(bike_recipe) %>%
-  add_model(preg_model) %>%
+  add_model(preg_model)
+
+grid_of_tuning_params <- grid_regular(penalty(),
+                                      mixture(),
+                                      levels = 5)
+
+folds <- vfold_cv(train_data_clean, v=5, repeats = 1)
+
+CV_results <- bike_wf %>%
+  tune_grid(resamples=folds,
+          grid=grid_of_tuning_params,
+          metrics=metric_set(rmse, mae))
+
+collect_metrics(CV_results) %>% # Gathers metrics into DF8
+  filter(.metric=="rmse") %>%
+  ggplot(data=., aes(x=penalty, y=mean, color=factor(mixture))) +
+  geom_line()
+
+bestTune <- CV_results %>%
+  select_best(metric="rmse")
+
+final_wf <- bike_wf %>%
+  finalize_workflow(bestTune) %>%
   fit(data=train_data_clean)
 
-lin_preds <- predict(bike_workflow, new_data = test_data) %>% 
+lin_preds <- final_wf %>% 
+  predict(new_data = test_data) %>% 
   mutate(.pred = exp(.pred))
 
 kaggle_submission <- lin_preds %>%
@@ -46,4 +68,4 @@ kaggle_submission <- lin_preds %>%
   mutate(datetime=as.character(format(datetime))) #right format to Kaggle
 
 vroom_write(x=kaggle_submission, 
-            file="GitHub/KaggleBikeShare/LMpenpredimproved5.csv", delim=",")
+            file="GitHub/KaggleBikeShare/LMtunedlvl5.csv", delim=",")

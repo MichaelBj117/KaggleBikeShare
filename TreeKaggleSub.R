@@ -15,14 +15,12 @@ bike_recipe <-recipe(count ~ ., data = train_data_clean) %>%
   step_time(datetime, features="hour") %>%
   step_date(datetime, features= "dow") %>% 
   step_mutate(datetime_hour = factor(datetime_hour)) %>% 
+  step_mutate(datetime_dow = factor(datetime_dow)) %>% 
   step_rm(c(datetime, atemp)) %>% 
   step_mutate(weather = factor(ifelse(weather == 4, 3, weather))) %>% 
   step_mutate(season = factor(season)) %>% 
-  step_zv(all_predictors()) %>% 
-  step_dummy(all_nominal_predictors()) %>% 
-  step_poly(c(humidity, temp, windspeed), degree = 3) %>% 
-  step_normalize(all_numeric_predictors())
-
+  step_mutate(workingday = factor(workingday)) %>% 
+  step_mutate(holiday = factor(holiday))
 
 prepped_recipe <- prep(bike_recipe)
 baked_data <- bake(prepped_recipe, new_data=train_data_clean)

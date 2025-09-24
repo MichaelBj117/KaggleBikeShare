@@ -5,6 +5,8 @@ library(patchwork)
 library(glmnet)
 library(rpart)
 library(ranger)
+library(bonsai)
+library(lightgbm)
 
 test_data <- vroom("~/GitHub/KaggleBikeShare/test.csv")
 train_data <- vroom("~/GitHub/KaggleBikeShare/train.csv")
@@ -26,18 +28,19 @@ bike_recipe <-recipe(count ~ ., data = train_data_clean) %>%
 prepped_recipe <- prep(bike_recipe)
 baked_data <- bake(prepped_recipe, new_data=train_data_clean)
 
-forest_mod <- rand_forest(mtry = tune(),
-                      min_n=tune(),
-                      trees=1000) %>% #Type of mode
-  set_engine("ranger") %>% # What R function to use
+boost_mod <- boost_tree(tree_depth=tune(),
+                          trees=tune(),
+                          learn_rate=tune()) %>%
+set_engine("lightgbm") %>% #or "xgboost" but lightgbm is faster6
   set_mode("regression")
 
 bike_wf <- workflow() %>%
   add_recipe(bike_recipe) %>%
-  add_model(forest_mod)
+  add_model(boost_mod)
 
-grid_of_tuning_params <- grid_regular(mtry(range(c(1,10))),
-                                      min_n(),
+grid_of_tuning_params <- grid_regular(tree_depth(),
+                                      trees(),
+                                      learn_rate(),
                                       levels = 5)
 
 folds <- vfold_cv(train_data_clean, v=5, repeats = 1)
@@ -49,7 +52,7 @@ CV_results <- bike_wf %>%
 
 collect_metrics(CV_results) %>% # Gathers metrics into DF8
   filter(.metric=="rmse") %>%
-  ggplot(data=., aes(x=mtry, y=mean, color=factor(min_n))) +
+  ggplot(data=., aes(x=learn_rate, y=mean)) +
   geom_line()
 
 bestTune <- CV_results %>%
@@ -71,4 +74,4 @@ kaggle_submission <- lin_preds %>%
   mutate(datetime=as.character(format(datetime))) #right format to Kaggle
 
 vroom_write(x=kaggle_submission, 
-            file="GitHub/KaggleBikeShare/foresttunedlvl5.csv", delim=",")
+            file="GitHub/KaggleBikeShare/boosttunedlvl5.csv", delim=",")

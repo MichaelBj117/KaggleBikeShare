@@ -48,5 +48,5 @@ kaggle_submission <- lin_preds %>%
   mutate(datetime=as.character(format(datetime))) #right format to Kaggle
 
 vroom_write(x=kaggle_submission, 
-            file="GitHub/KaggleBikeShare/stackingh2osub.csv", delim=",")
+            file="GitHub/KaggleBikeShare/stacking10h2osub.csv", delim=",")
 

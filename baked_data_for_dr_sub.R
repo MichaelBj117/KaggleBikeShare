@@ -31,7 +31,7 @@ vroom_write(x=baked_data,
             file="GitHub/KaggleBikeShare/baked_data_for_dr.csv", delim=",")
 vroom_write(x=test_baked_data,
             file="GitHub/KaggleBikeShare/test_bd_for_dr.csv", delim=",")
-pred <- vroom("C:/Users/mikey/Downloads/result-68dac8ac984c1666ce945d9a.csv")
+pred <- vroom("C:/Users/mikey/Downloads/result-68dcadc9a86998b8bf0bb651.csv")
 
 pred <- pred %>% 
   mutate(count_PREDICTION = exp(count_PREDICTION))  
@@ -44,4 +44,4 @@ kaggle_submission <- pred %>%
   mutate(datetime=as.character(format(datetime))) #right format to Kaggle  
 
 vroom_write(x=kaggle_submission, 
-            file="GitHub/KaggleBikeShare/data_robotBTRkagglesub.csv", delim=",")
+            file="GitHub/KaggleBikeShare/data_robotBTRkagglesub2.csv", delim=",")
